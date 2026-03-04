@@ -21,7 +21,7 @@ def parse_line(line, key_to_search):
             in_dep = True
             continue
 
-        if c in [" ", "+", "@", "'", '"', "~", ","] and in_dep:
+        if c in [" ", "+", "@", "'", '"', "~", ",", "%", "{"] and in_dep:
             if buffer == 'ang':
                 return "java"
             return buffer
