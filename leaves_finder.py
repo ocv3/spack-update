@@ -14,7 +14,7 @@ def parse_line(line, key_to_search, origin):
 
     for c in line:
         if c == "#":
-            return None
+            return [None]
 
         if key_to_search in buffer:
             if c == "f":
@@ -24,110 +24,35 @@ def parse_line(line, key_to_search, origin):
             continue
 
         if c in [" ", "+", "@", "'", '"', "~", ",", "%", "{"] and in_dep:
-            if buffer == '':
-                print(f"{origin}:-> {buffer} from {line}")
-
-                if origin=="dd4hep":
-                    return ["boost", "root"], []
-
-                if origin == "py-tensorflow":
-                    return [
-                        "hip",
-                        "rocrand",
-                        "rocblas",
-                        "rocfft",
-                        "hipfft",
-                        "rccl",
-                        "hipsparse",
-                        "rocprim",
-                        "hsa-rocr-dev",
-                        "rocminfo",
-                        "hipsolver",
-                        "hiprand",
-                        "rocsolver",
-                        "hipsolver",
-                        "hipblas",
-                        "hipcub",
-                        "rocm-core",
-                        "roctracer-dev",
-                        "miopen-hip",
-                    ], ["+rocm"]
-
-                if origin == "fairroot":
-                    return ["root", "fairmq"], []
-
-                if origin == "seissol":
-                    return ["openmpi", "mpich", "mvapich-plus"], []
-
-                if origin == "py-jaxlib":
-                    return [
-                        "comgr",
-                        "hip",
-                        "hipblas",
-                        "hipblaslt",
-                        "hipcub",
-                        "hipfft",
-                        "hiprand",
-                        "hipsolver",
-                        "hipsparse",
-                        "hsa-rocr-dev",
-                        "miopen-hip",
-                        "rccl",
-                        "rocblas",
-                        "rocfft",
-                        "rocminfo",
-                        "rocprim",
-                        "rocrand",
-                        "rocsolver",
-                        "rocsparse",
-                        "roctracer-dev",
-                        "rocm-core",
-                    ], []
-
-                if origin == "axom":
-                    return ["adiak", "caliper"], ["+profiling"]
-
-                if origin == "py-onnxruntime":
-                    return [
-                        "hsa-rocr-dev",
-                        "hip",
-                        "hiprand",
-                        "hipsparse",
-                        "hipfft",
-                        "hipcub",
-                        "hipblas",
-                        "llvm-amdgpu",
-                        "miopen-hip",
-                        "migraphx",
-                        "rocblas",
-                        "rccl",
-                        "rocprim",
-                        "rocminfo",
-                        "rocm-core",
-                        "rocm-cmake",
-                        "roctracer-dev",
-                        "rocthrust",
-                        "rocrand",
-                        "rocsparse",
-                    ], ["+rocm"]
-
-                if origin == "tandem":
-                    return ["openmpi", "mpich", "mvapich-plus"], []
-
-                if origin == "celeritas":
-                    return ["geant4", "root", "vecgeom", "covfie", "vecgeom", "covfie", "vecgeom"], []
-
-
             if buffer == 'ang':
-                return "java", []
+                buffer = "java"
             if buffer == 'oost.with_default_variants':
-                return "boost", []
-            if buffer == 'py-':
-                return ["py-pyqt5", "py-pyqt4", "py-pyside2"], []
-            return buffer, []
+                buffer = "boost"
+
+            if origin[0] == 'er' and buffer == "ep":
+                return ["kvtree", "rankstr", "redset", "shuffile"]
+
+            if origin[0] == "chapel" and buffer == "ep":
+                return [None]
+
+            if origin[0] == "gaudi" and buffer == "v[0]":
+                return ["catch2", "py-nose", "py-pytest"]
+
+            if origin[0] == "scr" and buffer == "omp":
+                return ["axl", "dtcmp", "er", "kvtree", "rankstr", "redset", "shuffile", "spath"]
+
+            if origin[0] in ["py-qtpy", "py-pyqtgraph"] and buffer == "py-":
+                return ["py-pyqt5", "py-pyqt4", "py-pyside2"]
+
+
+
+            if buffer in [ 'py-', 'rilinos_spec', 'omp', 'kk_spec', 'ep', 'uda_req', 'v[0]', 'd', 'args_new', 'packname', 'pl', 'spiral-package-', 'pec']:
+                print(f"{origin}: ({buffer}) -> {line}")
+
+            return [buffer]
 
         buffer += c
-    return None, []
+    return [None]
 
 
 class Package:
@@ -142,27 +67,16 @@ class Package:
             recipe_lines = f.read().splitlines()
 
         for l in recipe_lines:
-            d, variants = parse_line(l, "depends_on(", name)
-
-            for v in variants:
-                self.variant.add(v)
-            if isinstance(d, str):
-                self.dependencies.add(d)
-                continue
-            elif isinstance(d, list):
-                for dep in d:
+            for dep in parse_line(l, "depends_on(", (name, self.package_file_path)):
+                if dep:
                     self.dependencies.add(dep)
 
-            d = parse_line(l, "provides(", name)
-            for v in variants:
-                self.variant.add(v)
-            if d:
-                self.provides.add(d)
-                if d not in packages:
-                    packages[d] = [self]
-                else:
-                    packages[d].append(self)
-                continue
+            for prv in parse_line(l, "provides(", (name, self.package_file_path)):
+                if prv:
+                    if prv not in packages:
+                        packages[prv] = [self]
+                    else:
+                        packages[prv].append(self)
 
     def __str__(self):
         return f"{self.name}: {self.path}\n\tProvides: {self.provides}\n\tDepends on: {self.dependencies}"
@@ -218,6 +132,6 @@ for k in packages.keys():
     leaves.append(k)
     if len(all_pkgs) == 0:
         print("DONE")
-        print(leaves)
+        #print(leaves)
         print(missing)
         exit()
