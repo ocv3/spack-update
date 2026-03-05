@@ -8,7 +8,7 @@ spack_dirs = os.listdir(spack_repo_path)
 
 packages = dict()
 
-def parse_line(line, key_to_search):
+def parse_line(line, key_to_search, origin):
     buffer = ""
     in_dep = False
 
@@ -17,17 +17,117 @@ def parse_line(line, key_to_search):
             return None
 
         if key_to_search in buffer:
+            if c == "f":
+                continue
             buffer = ""
             in_dep = True
             continue
 
         if c in [" ", "+", "@", "'", '"', "~", ",", "%", "{"] and in_dep:
+            if buffer == '':
+                print(f"{origin}:-> {buffer} from {line}")
+
+                if origin=="dd4hep":
+                    return ["boost", "root"], []
+
+                if origin == "py-tensorflow":
+                    return [
+                        "hip",
+                        "rocrand",
+                        "rocblas",
+                        "rocfft",
+                        "hipfft",
+                        "rccl",
+                        "hipsparse",
+                        "rocprim",
+                        "hsa-rocr-dev",
+                        "rocminfo",
+                        "hipsolver",
+                        "hiprand",
+                        "rocsolver",
+                        "hipsolver",
+                        "hipblas",
+                        "hipcub",
+                        "rocm-core",
+                        "roctracer-dev",
+                        "miopen-hip",
+                    ], ["+rocm"]
+
+                if origin == "fairroot":
+                    return ["root", "fairmq"], []
+
+                if origin == "seissol":
+                    return ["openmpi", "mpich", "mvapich-plus"], []
+
+                if origin == "py-jaxlib":
+                    return [
+                        "comgr",
+                        "hip",
+                        "hipblas",
+                        "hipblaslt",
+                        "hipcub",
+                        "hipfft",
+                        "hiprand",
+                        "hipsolver",
+                        "hipsparse",
+                        "hsa-rocr-dev",
+                        "miopen-hip",
+                        "rccl",
+                        "rocblas",
+                        "rocfft",
+                        "rocminfo",
+                        "rocprim",
+                        "rocrand",
+                        "rocsolver",
+                        "rocsparse",
+                        "roctracer-dev",
+                        "rocm-core",
+                    ], []
+
+                if origin == "axom":
+                    return ["adiak", "caliper"], ["+profiling"]
+
+                if origin == "py-onnxruntime":
+                    return [
+                        "hsa-rocr-dev",
+                        "hip",
+                        "hiprand",
+                        "hipsparse",
+                        "hipfft",
+                        "hipcub",
+                        "hipblas",
+                        "llvm-amdgpu",
+                        "miopen-hip",
+                        "migraphx",
+                        "rocblas",
+                        "rccl",
+                        "rocprim",
+                        "rocminfo",
+                        "rocm-core",
+                        "rocm-cmake",
+                        "roctracer-dev",
+                        "rocthrust",
+                        "rocrand",
+                        "rocsparse",
+                    ], ["+rocm"]
+
+                if origin == "tandem":
+                    return ["openmpi", "mpich", "mvapich-plus"], []
+
+                if origin == "celeritas":
+                    return ["geant4", "root", "vecgeom", "covfie", "vecgeom", "covfie", "vecgeom"], []
+
+
             if buffer == 'ang':
-                return "java"
-            return buffer
+                return "java", []
+            if buffer == 'oost.with_default_variants':
+                return "boost", []
+            if buffer == 'py-':
+                return ["py-pyqt5", "py-pyqt4", "py-pyside2"], []
+            return buffer, []
 
         buffer += c
-    return None
+    return None, []
 
 
 class Package:
@@ -36,17 +136,26 @@ class Package:
         self.path = path
         self.dependencies = set()
         self.provides = set()
+        self.variant = set()
 
         with open(self.package_file_path, "r") as f:
             recipe_lines = f.read().splitlines()
 
         for l in recipe_lines:
-            d = parse_line(l, "depends_on(")
-            if d:
+            d, variants = parse_line(l, "depends_on(", name)
+
+            for v in variants:
+                self.variant.add(v)
+            if isinstance(d, str):
                 self.dependencies.add(d)
                 continue
+            elif isinstance(d, list):
+                for dep in d:
+                    self.dependencies.add(dep)
 
-            d = parse_line(l, "provides(")
+            d = parse_line(l, "provides(", name)
+            for v in variants:
+                self.variant.add(v)
             if d:
                 self.provides.add(d)
                 if d not in packages:
